@@ -16,10 +16,6 @@
 #define STD_IN 0
 #define ERROR -1
 
-<<<<<<< HEAD
-
-=======
->>>>>>> 1707c7a (prueba de cambios)
 int main(int argc, char const *argv[])
 {
     //Lectura de parametros, paths a partir de argv[1], argv[0] contiene el path al programa
@@ -48,53 +44,32 @@ int main(int argc, char const *argv[])
         exit(EXIT_FAILURE);
     }
 
-<<<<<<< HEAD
-=======
-    printf("Buenasss");
->>>>>>> 1707c7a (prueba de cambios)
 
     if(pid == 0){
         //El esclavo solo lee del pipe de path
         close(Path_pipe_fd[WRITE_FD]);
         //Reacomodamos los fds
-<<<<<<< HEAD
         close(READ_FD);
         dup(Path_pipe_fd[READ_FD]);
         close(Path_pipe_fd[READ_FD]);
-=======
-        //close(READ_FD);
-        //dup(Path_pipe_fd[READ_FD]);
-        //close(Path_pipe_fd[READ_FD]);
->>>>>>> 1707c7a (prueba de cambios)
         
         //El esclavo solo escribe del pipe de Result
         close(Result_pipe_fd[READ_FD]);
         //Reacomodamos los fds
-<<<<<<< HEAD
         close(WRITE_FD);
         dup(Result_pipe_fd[WRITE_FD]);
         close(Result_pipe_fd[WRITE_FD]);
-=======
-        //close(WRITE_FD);
-        //dup(Result_pipe_fd[WRITE_FD]);
-        //close(Result_pipe_fd[WRITE_FD]);
->>>>>>> 1707c7a (prueba de cambios)
 
         
         
         //Me preparo para el execv
         char * const paramList[] = {"./slave", NULL}; 
-<<<<<<< HEAD
         execv("./slave", paramList);
-=======
-        execve("/usr/bin/md5sum", paramList, NULL);
->>>>>>> 1707c7a (prueba de cambios)
         perror("Error al ejecutar el slave");
         exit(EXIT_FAILURE);
     }
 
     //Codigo del master
-<<<<<<< HEAD
     //El master no lee del path_pipe, solo escribe. 
     close(Path_pipe_fd[READ_FD]);
 
@@ -104,31 +79,11 @@ int main(int argc, char const *argv[])
     //Espero a que esclavo hijo termine
     //Escribo en el pipe el path al archivo
     write(Path_pipe_fd[WRITE_FD], argv[1], strlen(argv[1]));
-=======
-    //El master no lee del path_pipe, solo escribe. Necesito igual que el pipe path represente el stdin
-    close(Path_pipe_fd[READ_FD]);
-    //Reacomodamos los fds
-    close(READ_FD);
-    dup(Path_pipe_fd[WRITE_FD]);
-    close(Path_pipe_fd[WRITE_FD]);
-
-    //El master no escribe del Result_pipe, solo lee. Necesito que lo lea de stdout
-    close(Result_pipe_fd[WRITE_FD]);
-    //Reacomodamos los fds
-    close(WRITE_FD);
-    dup(Result_pipe_fd[READ_FD]);
-    close(Result_pipe_fd[READ_FD]);
-
-    //Espero a que esclavo hijo termine
-    //Escribo en el pipe el path al archivo
-    write(STD_IN, argv[1], strlen(argv[1]));
->>>>>>> 1707c7a (prueba de cambios)
     wait(NULL);
     //printf("El esclavo termino");
 
     //Leo el resultado
     //Leo el path del path
-<<<<<<< HEAD
     char md5_result[100];
     
     ssize_t md5_dim = read(Result_pipe_fd[READ_FD], &md5_result, 100);
@@ -138,18 +93,6 @@ int main(int argc, char const *argv[])
     }
 
     printf("%s \n", md5_result);
-=======
-    //char * md5_result = NULL;
-    //size_t md5_size = 0;
-    
-    //ssize_t md5_dim = getline(&md5_result, &md5_size, stdin);
-    //if(md5_dim == -1){
-    //    perror("getline");
-    //    exit(EXIT_FAILURE);
-    //}
-
-    //printf("%s \n", md5_result);
->>>>>>> 1707c7a (prueba de cambios)
     
 
     exit(EXIT_SUCCESS);
