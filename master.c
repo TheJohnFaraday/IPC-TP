@@ -16,6 +16,7 @@
 #define STD_IN 0
 #define ERROR -1
 
+
 int main(int argc, char const *argv[])
 {
     //Lectura de parametros, paths a partir de argv[1], argv[0] contiene el path al programa

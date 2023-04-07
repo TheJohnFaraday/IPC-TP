@@ -92,10 +92,12 @@ int main(int argc, char const *argv[])
     }
 
 
-    free(file_path);
-    printf("Termino el slave\n");
-    printf("%s \n", md5_result);
-    free(md5_result);
+    //free(file_path);
+    //Escribo el resultado en salida estandar
+    //printf("Termino el slave\n");
+    //printf("%s \n", md5_result);
+    write(STD_OUT, md5_result, md5_dim);
+    //free(md5_result);
 
     exit(EXIT_SUCCESS);
 }
