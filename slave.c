@@ -10,6 +10,7 @@
 #define STD_IN 0
 #define READ_FD 0
 #define WRITE_FD 1
+#define STD_OUT 1
 #define MAX_PATH_CHARACTERS 50
 #define PIPE_ENTRIES 2
 #define ERROR -1
@@ -17,14 +18,15 @@
 int main(int argc, char const *argv[])
 {
     //Leo el path de std_in
-    char * file_path = NULL;
-    size_t path_size = 0;
+    //char * file_path = NULL;
+    char file_path[100];
     
-    ssize_t path_dim = getline(&file_path, &path_size, stdin);
+    ssize_t path_dim = read(STD_IN, &file_path, 100);
     if(path_dim == -1){
         perror("getline");
         exit(EXIT_FAILURE);
     }
+
 
     // Elimino \n del final
     if (path_dim > 0 && file_path[path_dim - 1] == '\n') {
@@ -70,9 +72,9 @@ int main(int argc, char const *argv[])
     //El padre solo va a leer del pipe
     close(fd[WRITE_FD]);
     //Reasignamos fds
-    close(READ_FD);
-    dup(fd[READ_FD]);
-    close(fd[READ_FD]);
+    //close(READ_FD);
+    //dup(fd[READ_FD]);
+    //close(fd[READ_FD]);
 
     //Espero a que el hijo termine
     wait(NULL);
@@ -80,20 +82,22 @@ int main(int argc, char const *argv[])
     //Ahora quiero leer el resultado
 
     //Leo el path de std_in
-    char * md5_result = NULL;
+    char md5_result[100];
     size_t md5_size = 0;
     
-    ssize_t md5_dim = getline(&md5_result, &md5_size, stdin);
+    ssize_t md5_dim = read(fd[READ_FD], &md5_result, 100);
     if(md5_dim == -1){
-        perror("getline");
+        perror("read");
         exit(EXIT_FAILURE);
     }
 
 
-    free(file_path);
-    printf("Termino el slave\n");
-    printf("%s \n", md5_result);
-    free(md5_result);
+    //free(file_path);
+    //Escribo el resultado en salida estandar
+    //printf("Termino el slave\n");
+    //printf("%s \n", md5_result);
+    write(STD_OUT, md5_result, md5_dim);
+    //free(md5_result);
 
-    return 0;
+    exit(EXIT_SUCCESS);
 }
