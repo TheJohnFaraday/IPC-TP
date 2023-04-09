@@ -7,14 +7,18 @@
 #include <sys/wait.h>
 #include <stdlib.h>
 #include <string.h>
+#include <signal.h>
+
 
 #define INITIAL_PATH 1
 #define PIPE_ENTRIES 2
+#define MAX_PATH_CHARACTERS 100
 #define READ_FD 0
 #define WRITE_FD 1
 #define STD_OUT 1
 #define STD_IN 0
 #define ERROR -1
+#define SLAVE_PROCESS 0
 
 
 int main(int argc, char const *argv[])
@@ -24,14 +28,8 @@ int main(int argc, char const *argv[])
     int Path_pipe_fd[PIPE_ENTRIES];
     int Result_pipe_fd[PIPE_ENTRIES];
 
-    //Pipe que labura con el path
-    if (pipe(Path_pipe_fd) == ERROR){
-        perror("pipe");
-        exit(EXIT_FAILURE);
-    }
-
-    //Pipe que labura con el hash ya hecho
-    if (pipe(Result_pipe_fd) == ERROR){
+    //PPipe que lee el path y lo manda al slave. Pipe que lee el resultado desde el slave y lo manda al master
+    if (pipe(Path_pipe_fd) == ERROR || pipe(Result_pipe_fd) == ERROR){
         perror("pipe");
         exit(EXIT_FAILURE);
     }
@@ -46,7 +44,7 @@ int main(int argc, char const *argv[])
     }
 
 
-    if(pid == 0){
+    if(pid == SLAVE_PROCESS){
         //El esclavo solo lee del pipe de path
         close(Path_pipe_fd[WRITE_FD]);
         //Reacomodamos los fds
@@ -79,21 +77,26 @@ int main(int argc, char const *argv[])
 
     //Espero a que esclavo hijo termine
     //Escribo en el pipe el path al archivo
-    write(Path_pipe_fd[WRITE_FD], argv[1], strlen(argv[1]));
-    wait(NULL);
-    //printf("El esclavo termino");
-
-    //Leo el resultado
-    //Leo el path del path
-    char md5_result[100];
+    char md5_result[MAX_PATH_CHARACTERS];
+    for (int i = INITIAL_PATH; i < argc; i++)
+    {
+        memset(md5_result, 0 , MAX_PATH_CHARACTERS);
+        write(Path_pipe_fd[WRITE_FD], argv[i], strlen(argv[i]));
+        ssize_t md5_dim = read(Result_pipe_fd[READ_FD], md5_result, MAX_PATH_CHARACTERS);
+        if(md5_dim == ERROR){
+            perror("read");
+            exit(EXIT_FAILURE);
+        }
+        printf("%s \n", md5_result);
+    }
     
-    ssize_t md5_dim = read(Result_pipe_fd[READ_FD], &md5_result, 100);
-    if(md5_dim == -1){
-        perror("read");
+    //Termino con el esclavo
+    if (kill(pid, SIGINT) == ERROR) {
+        perror("Error al enviar la señal SIGINT");
         exit(EXIT_FAILURE);
     }
-
-    printf("%s \n", md5_result);
+    
+    printf("Proceso finalizado \n");
     
 
     exit(EXIT_SUCCESS);
