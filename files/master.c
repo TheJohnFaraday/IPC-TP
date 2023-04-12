@@ -111,10 +111,6 @@ int main(int argc, char const *argv[])
     //Espero a que esclavo hijo termine
     //Escribo en el pipe el path al archivo
     char md5_result[MAX_PATH_CHARACTERS];
-    char slave_status[cant_slaves];
-    memset(slave_status, 0, cant_slaves);
-    
-    //memset(slave_status, 0 , cant_slaves);
     int read_files = 0, processed_files= 0;
     while(processed_files < cant_files){
         //Select va a retornar la cantidad de fds disponibles para leer o escribir
@@ -129,14 +125,11 @@ int main(int argc, char const *argv[])
         {
 
             if(FD_ISSET(pipes[i].Path_pipe_fd[WRITE_FD], &write_set) && (read_files < cant_files)){
-                if(!slave_status[i]) {
-                    write(pipes[i].Path_pipe_fd[WRITE_FD], argv[read_files+1], strlen(argv[read_files+1]));
-                    slave_status[i] = 1;
-                    read_files++;
-                }
+                write(pipes[i].Path_pipe_fd[WRITE_FD], argv[read_files+1], strlen(argv[read_files+1]));
+                read_files++;
             }
 
-            if(FD_ISSET(pipes[i].Result_pipe_fd[READ_FD], &read_set) && (processed_files < cant_files) ){
+            if(FD_ISSET(pipes[i].Result_pipe_fd[READ_FD], &read_set)){
                 memset(md5_result, 0 , MAX_PATH_CHARACTERS);
                 ssize_t md5_dim = read(pipes[i].Result_pipe_fd[READ_FD], md5_result, MAX_PATH_CHARACTERS);
                 if(md5_dim == ERROR){
@@ -144,7 +137,6 @@ int main(int argc, char const *argv[])
                     exit(EXIT_FAILURE);
                 }
                 printf("%s \n", md5_result);
-                slave_status[i] = 0;
                 processed_files++;
             }
 

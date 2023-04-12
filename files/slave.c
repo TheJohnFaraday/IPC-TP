@@ -42,7 +42,6 @@ int main(int argc, char const *argv[])
         memset(file_path, 0, MAX_PATH_CHARACTERS);
         ssize_t path_dim;    
 
-
         path_dim = read(STD_IN, file_path, MAX_PATH_CHARACTERS);
 
         if(path_dim == ERROR){
