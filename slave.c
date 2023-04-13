@@ -1,3 +1,5 @@
+// This is a personal academic project. Dear PVS-Studio, please check it.
+// PVS-Studio Static Code Analyzer for C, C++ and C#: http://www.viva64.com
 
 /*Lee los archivos a traves de un pipe (entrada estandar)*/
 
@@ -12,7 +14,8 @@
 #define READ_FD 0
 #define WRITE_FD 1
 #define STD_OUT 1
-#define MAX_PATH_CHARACTERS 100
+#define MAX_PATH_CHARACTERS 130
+#define MAX_OUTPUT_CHARACTERS 130
 #define PIPE_ENTRIES 2
 #define ERROR -1
 #define SLAVE_PROCESS 0
@@ -23,7 +26,6 @@ int main(int argc, char const *argv[])
         //Creo un proceso hijo para que ejecute md5sum y me comunico con el mediante un pipe
         int fd[PIPE_ENTRIES];
         pid_t pid;
-        int status;
 
         int first_process = 1;
 
@@ -97,7 +99,24 @@ int main(int argc, char const *argv[])
             exit(EXIT_FAILURE);
         }
 
-        write(STD_OUT, md5_result, md5_dim);
+        //Imprimo el resultado
+
+
+        // char output[MAX_OUTPUT_CHARACTERS];
+        // memset(output, 0, MAX_OUTPUT_CHARACTERS);
+        // strcat(output, md5_result);
+        // strcat(output, "Slave ID: ");
+        // char pid_str[10];
+        // sprintf(pid_str, "%d", pid);
+        // strcat(output, pid_str);
+        // strcat(output, "\n");
+        // // sprintf(output, "%sSlave ID: %d\n", md5_result, pid);
+
+        ssize_t output_dim = write(STD_OUT, md5_result, md5_dim);
+        if(output_dim == ERROR){
+            perror("write");
+            exit(EXIT_FAILURE);
+        }
 
     }
     
