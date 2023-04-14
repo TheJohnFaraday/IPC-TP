@@ -20,8 +20,7 @@
 #define MAX_MEM_NAME_LEN 20
 #define MAX_OUTPUT_CHARACTERS 130
 #define PIPE_BUF 1024
-#define SHM_SIZE 4096
-#define SEM_NAME "/sem_name"
+#define SHM_SIZE 8192
 #define MAX_SEM_NAME_LEN 20
 
 int main(int argc, char const *argv[]) {
@@ -46,7 +45,7 @@ int main(int argc, char const *argv[]) {
     sscanf(pipe_data, "%d %s", &shm, sem);
 
     // Abrimos el semáforo
-    sem_t *semaphore = sem_open(SEM_NAME, 0);
+    sem_t *semaphore = sem_open(sem, 0);
     if (semaphore == SEM_FAILED) {
         perror("sem_open");
         exit(EXIT_FAILURE);

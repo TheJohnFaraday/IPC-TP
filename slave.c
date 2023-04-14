@@ -44,7 +44,6 @@ int main(int argc, char const *argv[])
         memset(file_path, 0, MAX_PATH_CHARACTERS);
         ssize_t path_dim;    
 
-
         path_dim = read(STD_IN, file_path, MAX_PATH_CHARACTERS);
 
         if(path_dim == ERROR){
@@ -100,17 +99,6 @@ int main(int argc, char const *argv[])
         }
 
         //Imprimo el resultado
-
-
-        // char output[MAX_OUTPUT_CHARACTERS];
-        // memset(output, 0, MAX_OUTPUT_CHARACTERS);
-        // strcat(output, md5_result);
-        // strcat(output, "Slave ID: ");
-        // char pid_str[10];
-        // sprintf(pid_str, "%d", pid);
-        // strcat(output, pid_str);
-        // strcat(output, "\n");
-        // // sprintf(output, "%sSlave ID: %d\n", md5_result, pid);
 
         ssize_t output_dim = write(STD_OUT, md5_result, md5_dim);
         if(output_dim == ERROR){

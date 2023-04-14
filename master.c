@@ -30,7 +30,7 @@
 #define ERROR -1
 #define SLAVE_PROCESS 0
 
-#define SHM_SIZE 4096
+#define SHM_SIZE 8192
 #define SEM_NAME "/sem_name"
 #define PIPE_BUF 1024
 
@@ -168,7 +168,6 @@ int main(int argc, char const *argv[])
     char slave_status[cant_slaves];
     memset(slave_status, 0, cant_slaves);
     
-    //memset(slave_status, 0 , cant_slaves);
     int read_files = 0, processed_files= 0;
     while(processed_files < cant_files){
 
