@@ -1,5 +1,7 @@
 // This is a personal academic project. Dear PVS-Studio, please check it.
 // PVS-Studio Static Code Analyzer for C, C++ and C#: http://www.viva64.com
+// This is a personal academic project. Dear PVS-Studio, please check it.
+// PVS-Studio Static Code Analyzer for C, C++ and C#: http://www.viva64.com
 
 //Modelo naive del master que recibe un solo path y lo deriva a un slave mediante un pipe. El resultado lo obtiene mediante otro pipe
 
@@ -16,12 +18,15 @@
 #include <sys/sem.h>
 #include <semaphore.h>
 #include <fcntl.h>
+#include <sys/stat.h>
 #include <pthread.h>
 #include <sys/mman.h>
+
 
 #define INITIAL_PATH 1
 #define PIPE_ENTRIES 2
 #define MAX_PATH_CHARACTERS 130
+#define FILE_RESULT 200
 #define MAX_SLAVES 10
 #define READ_FD 0
 #define WRITE_FD 1
@@ -30,7 +35,8 @@
 #define ERROR -1
 #define SLAVE_PROCESS 0
 
-#define SHM_SIZE 8192
+#define PAGE_SIZE 4096
+#define SHM_NAME "/shm_name"
 #define SEM_NAME "/sem_name"
 #define PIPE_BUF 1024
 
@@ -53,19 +59,40 @@ int main(int argc, char const *argv[])
         cant_slaves = cant_files;
     }
 
-    int shm_id;
-    char * shm_ptr;
+    int shm_fd;
+    char * shm_base_ptr;
     sem_t * semaphore;
 
     //Creo la memoria compartida
-    shm_id = shmget(IPC_PRIVATE, SHM_SIZE, IPC_CREAT | 0666);
-    if (shm_id == ERROR){
-        perror("shmget");
+    shm_fd = shm_open(SHM_NAME, O_CREAT | O_RDWR, 0666);
+    if (shm_fd == ERROR){
+        perror("shm_open");
         exit(EXIT_FAILURE);
     }
 
-    //Mapeo la memoria compartida
-    shm_ptr = shmat(shm_id, NULL, 0);
+    size_t shm_size = PAGE_SIZE * cant_files;
+    //Ahora que la tenemos definida, asigno un tamano
+    if((ftruncate(shm_fd, shm_size) == ERROR)){
+        perror("ftruncate");
+        exit(EXIT_FAILURE);
+    }
+
+    //Ahora debemos mapear el objeto de memoria compartida a una serie de direcciones dentro del espacio de memoria del proceso
+    //Al pasar NULL como primer argumento le damos la libertad al SO para que eliga donde mapear
+    //En el 3er parametro asignamos permisos de escritura, mientras que en el 4to aclaramos que la memoria sera compartida entre procesos
+    //El ultimo argumento es el offset. En este caso se lee/escribe desde la posicion cero del conjunto de paginas
+    shm_base_ptr = mmap(NULL, shm_size, PROT_WRITE, MAP_SHARED, shm_fd, 0);
+    if (shm_base_ptr == MAP_FAILED){
+        perror("mmap");
+        exit(EXIT_FAILURE);
+    }
+
+    //Cerramos el fd de la memoria (no lo necesitamos mas)
+    if(close(shm_fd) < 0){
+        perror("close");
+        exit(EXIT_FAILURE);
+    }
+
 
     //Creo el semaforo
     semaphore = sem_open(SEM_NAME, O_CREAT, 0666, 0);
@@ -74,16 +101,8 @@ int main(int argc, char const *argv[])
         exit(EXIT_FAILURE);
     }
 
-    //Le paso los datos de la shared memory a view para que pueda leer de ahi
-    char shm_data[PIPE_BUF];
-    memset(shm_data, 0, PIPE_BUF);
-    snprintf(shm_data, PIPE_BUF, "%d %s", shm_id, SEM_NAME);
-
-    ssize_t bytes_written = write(STDOUT_FILENO, shm_data, strlen(shm_data));
-    if (bytes_written == ERROR){
-        perror("write");
-        exit(EXIT_FAILURE);
-    }
+    //Le paso el tamano de la memoria
+    printf("%ld", shm_size);
 
 
     slave_pipes pipes[cant_slaves];
@@ -165,10 +184,11 @@ int main(int argc, char const *argv[])
     //Espero a que esclavo hijo termine
     //Escribo en el pipe el path al archivo
     char md5_result[MAX_PATH_CHARACTERS];
+    char toFile_result[FILE_RESULT];
     char slave_status[cant_slaves];
     memset(slave_status, 0, cant_slaves);
     
-    int read_files = 0, processed_files= 0;
+    int read_files = 0, processed_files= 0, offset=0;
     while(processed_files < cant_files){
 
         //Select va a retornar la cantidad de fds disponibles para leer o escribir
@@ -192,6 +212,7 @@ int main(int argc, char const *argv[])
 
             if(FD_ISSET(pipes[i].Result_pipe_fd[READ_FD], &read_set) && (processed_files < cant_files) ){
                 memset(md5_result, 0 , MAX_PATH_CHARACTERS);
+                memset(toFile_result, 0 , FILE_RESULT);
                 ssize_t md5_dim = read(pipes[i].Result_pipe_fd[READ_FD], md5_result, MAX_PATH_CHARACTERS);
                 if(md5_dim == ERROR){
                     perror("read");
@@ -199,18 +220,30 @@ int main(int argc, char const *argv[])
                 }
 
                 //Escribo en la memoria compartida
-                strcpy(shm_ptr, md5_result);
-                // le sumo el pid del proceso que escribio en la memoria compartida
-                sprintf(shm_ptr + strlen(shm_ptr), "Slave ID: %d\n", pid[i]);
-                //escribo la respuesta en el archivo
-                fprintf(file, "%s", shm_ptr);
-                sem_post(semaphore);
+                //strcpy(shm_ptr, md5_result);
+                //Obtengo los resultados
+                strcpy(toFile_result, md5_result);
+                sprintf(toFile_result + strlen(md5_result), "Slave ID: %d\n", pid[i]);
+
+                //Los escribo en el archivo
+                fprintf(file, "%s", toFile_result); 
+                fflush(file);
+                
+                //Ahora escribo en la memoria
+                int entry_size = strlen(toFile_result);
+                memcpy(shm_base_ptr + offset, toFile_result, entry_size);
+
+                offset+=entry_size;
+
+                if(sem_post(semaphore)){
+                    perror("sem_post");
+                    exit(EXIT_FAILURE);
+                }
                 slave_status[i] = 0;
                 processed_files++;
             }
 
         }
-        
 
         //Actualizo la informacion para el select
         FD_ZERO(&read_set);
@@ -221,11 +254,12 @@ int main(int argc, char const *argv[])
             FD_SET(pipes[i].Result_pipe_fd[READ_FD], &read_set);
         }
     }
+    
 
     //Termino con el view
     memset(md5_result, 0 , MAX_PATH_CHARACTERS);
-    strncpy(shm_ptr, md5_result, SHM_SIZE);
-    sem_post(semaphore);
+    //strncpy(shm_ptr, md5_result, SHM_SIZE);
+    //sem_post(semaphore);
 
     
     //Termino con el esclavo
@@ -237,20 +271,18 @@ int main(int argc, char const *argv[])
         }
     }
     
-    //Termino con el semaforo
-    if (sem_close(semaphore) == ERROR) {
-        perror("Error al cerrar el semaforo");
+    //Terminamos con la memoria
+    
+    
+    if(munmap(shm_base_ptr, shm_size) < 0){
+        perror("munmap");
         exit(EXIT_FAILURE);
     }
 
-    //Termino con la memoria compartida
-    if (shmdt(shm_ptr) == ERROR) {
-        perror("Error al desvincular la memoria compartida");
-        exit(EXIT_FAILURE);
-    }
-    //Elimino la memoria compartida
-    if (shmctl(shm_id, IPC_RMID, NULL) == ERROR) {
-        perror("Error al eliminar la memoria compartida");
+    
+    //Termino con el semaforo
+    if(sem_close(semaphore) < 0) {
+        perror("sem_close");
         exit(EXIT_FAILURE);
     }
 
