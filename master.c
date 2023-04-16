@@ -25,8 +25,8 @@
 
 #define INITIAL_PATH 1
 #define PIPE_ENTRIES 2
-#define MAX_PATH_CHARACTERS 130
-#define FILE_RESULT 200
+#define MAX_PATH_CHARACTERS 260
+#define FILE_RESULT 300
 #define MAX_SLAVES 10
 #define READ_FD 0
 #define WRITE_FD 1
@@ -48,16 +48,31 @@ typedef struct {
 
 int main(int argc, char const *argv[])
 {
-    sleep(2);
+    sleep(5);
     int cant_files = argc-1;
     int cant_slaves;
+    size_t shm_size = PAGE_SIZE*cant_files;
+    char first_run[MAX_SLAVES];
+    memset(first_run, 0, MAX_SLAVES);
 
     if(cant_files > MAX_SLAVES){
         cant_slaves = MAX_SLAVES;
+        if (cant_files > MAX_SLAVES*2){
+            memset(first_run, 1, MAX_SLAVES);
+            shm_size = PAGE_SIZE * (cant_files - MAX_SLAVES);
+        }
+        else{
+            for (int i = 0; i < cant_files - MAX_SLAVES; i++){
+                first_run[i] = 1;
+                shm_size -= PAGE_SIZE;
+            }
+        }
+        
     }
     else {
         cant_slaves = cant_files;
     }
+    
 
     int shm_fd;
     char * shm_base_ptr;
@@ -70,7 +85,7 @@ int main(int argc, char const *argv[])
         exit(EXIT_FAILURE);
     }
 
-    size_t shm_size = PAGE_SIZE * cant_files;
+    
     //Ahora que la tenemos definida, asigno un tamano
     if((ftruncate(shm_fd, shm_size) == ERROR)){
         perror("ftruncate");
@@ -103,6 +118,7 @@ int main(int argc, char const *argv[])
 
     //Le paso el tamano de la memoria
     printf("%ld", shm_size);
+    fflush(stdout);
 
 
     slave_pipes pipes[cant_slaves];
@@ -204,9 +220,28 @@ int main(int argc, char const *argv[])
 
             if(FD_ISSET(pipes[i].Path_pipe_fd[WRITE_FD], &write_set) && (read_files < cant_files)){
                 if(!slave_status[i]) {
-                    write(pipes[i].Path_pipe_fd[WRITE_FD], argv[read_files+1], strlen(argv[read_files+1]));
+                    //Escribo un path is el first_run da 0 o dos paths si da 1
+                    if (first_run[i] == 1){
+                        char file_paths[MAX_PATH_CHARACTERS];
+                        memset(file_paths, 0, MAX_PATH_CHARACTERS);
+                        strcat(file_paths, argv[read_files+1]);
+                        strcat(file_paths, " ");
+                        strcat(file_paths, argv[read_files+2]);
+                        strcat(file_paths, " ");
+                        
+                        write(pipes[i].Path_pipe_fd[WRITE_FD], file_paths, strlen(file_paths));
+                        read_files += 2;
+                    }
+                    else{
+                        char file_paths[MAX_PATH_CHARACTERS];
+                        memset(file_paths, 0, MAX_PATH_CHARACTERS);
+                        strcat(file_paths, argv[read_files+1]);
+                        strcat(file_paths, " ");
+                        
+                        write(pipes[i].Path_pipe_fd[WRITE_FD], file_paths, strlen(file_paths));
+                        read_files++;
+                    }
                     slave_status[i] = 1;
-                    read_files++;
                 }
             }
 
@@ -219,11 +254,28 @@ int main(int argc, char const *argv[])
                     exit(EXIT_FAILURE);
                 }
 
-                //Escribo en la memoria compartida
-                //strcpy(shm_ptr, md5_result);
-                //Obtengo los resultados
-                strcpy(toFile_result, md5_result);
+                if (first_run[i]) {
+                    //Separo los resultados
+                    first_run[i] = 0;
+                    processed_files += 2;
+                    // char * first_result = strtok(md5_result, " ");
+                    // char * second_result = strtok(NULL, " ");
+                    // strcat(toFile_result, first_result);
+                    // sprintf(toFile_result + strlen(first_result), "Slave ID: %d\n", pid[i]);
+                    // strcat(toFile_result, second_result);
+                    // sprintf(toFile_result + strlen(first_result) + strlen(second_result), "Slave ID: %d\n", pid[i]);
+                }
+                else{
+                    processed_files++;
+                    // strcat(toFile_result, md5_result);
+                    // sprintf(toFile_result + strlen(md5_result), "Slave ID: %d\n", pid[i]);
+                }
+
+                strcat(toFile_result, md5_result);
                 sprintf(toFile_result + strlen(md5_result), "Slave ID: %d\n", pid[i]);
+
+                //printf("%s", toFile_result);
+
 
                 //Los escribo en el archivo
                 fprintf(file, "%s", toFile_result); 
@@ -240,7 +292,6 @@ int main(int argc, char const *argv[])
                     exit(EXIT_FAILURE);
                 }
                 slave_status[i] = 0;
-                processed_files++;
             }
 
         }
