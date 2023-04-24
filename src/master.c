@@ -51,32 +51,18 @@ int main(int argc, char const *argv[])
     //Creo el semaforo
     sem_t * semaphore = create_sem();
 
-
     slave_pipes pipes[cant_slaves];
-
-    //Creo los pares de pipes
-    //Pipe que lee el path y lo manda al slave. Pipe que lee el resultado desde el slave y lo manda al master
-    for (int i = 0; i < cant_slaves; i++){
-        //Pipe que labura con el path
-        if ((pipe(pipes[i].Path_pipe_fd) == ERROR) || (pipe(pipes[i].Result_pipe_fd) == ERROR)){
-            perror("pipe");
-            exit(EXIT_FAILURE);
-        }
-    }
-
-    FILE * file;
-    char filename[] = "resultados.txt";
-    file = fopen(filename, "w");
-    if (file == NULL){
-        perror("fopen");
-        exit(EXIT_FAILURE);
-    }
 
     //Creamos a los esclavo
     pid_t pid[cant_slaves];
 
     for (int i = 0; i < cant_slaves; i++)
     {
+        if ((pipe(pipes[i].Path_pipe_fd) == ERROR) || (pipe(pipes[i].Result_pipe_fd) == ERROR)){
+            perror("pipe");
+            exit(EXIT_FAILURE);
+        }
+        
         pid[i] = fork();
         if(pid[i] == ERROR){
             perror("Error al crear proceso esclavo");
@@ -98,6 +84,14 @@ int main(int argc, char const *argv[])
             close(WRITE_FD);
             dup(pipes[i].Result_pipe_fd[WRITE_FD]);
             close(pipes[i].Result_pipe_fd[WRITE_FD]);
+
+            for (int j = 0; j < i; j++)
+            {
+                close(pipes[j].Path_pipe_fd[READ_FD]);
+                close(pipes[j].Path_pipe_fd[WRITE_FD]);
+                close(pipes[j].Result_pipe_fd[READ_FD]);
+                close(pipes[j].Result_pipe_fd[WRITE_FD]);
+            }
             
             //Me preparo para el execv
             char * const paramList[] = {"./slave", NULL}; 
@@ -107,12 +101,23 @@ int main(int argc, char const *argv[])
         }
     }
 
+
     //Codigo del master
     //Cierro los extremos de los pipes que no uso
     for (int i = 0; i < cant_slaves; i++)
     {
         close(pipes[i].Path_pipe_fd[READ_FD]);
         close(pipes[i].Result_pipe_fd[WRITE_FD]);
+    }
+
+    //sleep(600);
+
+    FILE * file;
+    char filename[] = "resultados.txt";
+    file = fopen(filename, "w");
+    if (file == NULL){
+        perror("fopen");
+        exit(EXIT_FAILURE);
     }
 
     //Me preparo para monitorear las entradas de los pipes
